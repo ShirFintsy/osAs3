@@ -39,7 +39,7 @@ public:
     string remove () {
         full->acquire(); // down
         m.lock();
-        string last = UbQ.back();
+        string last = UbQ.front();
         UbQ.pop();
         m.unlock();
         return last;

@@ -15,7 +15,7 @@ UnboundedQueue* newsQueue = new UnboundedQueue();
 UnboundedQueue* weatherQueue = new UnboundedQueue();
 BoundedQueue* CoEditQueue;
 
-vector<string> split (string s, string delimiter) {
+vector<string> split (string s, const string& delimiter) {
     size_t pos_start = 0, pos_end, delim_len = delimiter.length();
     string token;
     vector<string> res;
@@ -30,7 +30,7 @@ vector<string> split (string s, string delimiter) {
     return res;
 }
 
-int getNumof(string type) {
+int getNumof(const string& type) {
     std::ifstream configFile ("config.txt");
     int counter = 0;
     //configFile.open(); //open a file to perform read operation using file object
@@ -79,7 +79,8 @@ void producer(int prod, int numOfNews) {
         //news.append(to_string(prod));
         string news = "article number ";
         news.append(to_string(j + 1));
-        news.append(" SPORTS");
+        news.append(" SPORTS - belong to produce ");
+        news.append(to_string(prod));
         allNews.push_back(news);
         //allNews.insert(allNews.end(),news);
         //printf("producer %d create article: %s\n", prod, news.c_str());
@@ -106,18 +107,11 @@ void producer(int prod, int numOfNews) {
 vector<string> getArticlesFromProducers(int numOfProducers) {
     vector<string> currentsNews;
     for (int i = 0; i < numOfProducers; ++i) {
-//        auto begin = ProducersQueue.begin();
-//        std::advance(begin, i);
-//        BoundedQueue* current = *begin;
         BoundedQueue* current = ProducersQueue[i];
-//        if (current->q.empty() == 1) { // if there aren't articles in current producer queue
-//            printf("produce %d is empty\n", i);
-//            continue;
-//        }
+
         if(!current->q.empty()) { // not empty
             string article = current->remove();
-//            if (article == "end")
-//                printf("END article removed from prod %d\n", i + 1);
+
             printf("removed %s from produce %d\n", article.c_str(), i + 1);
             currentsNews.push_back(article);
         } else{
@@ -128,13 +122,7 @@ vector<string> getArticlesFromProducers(int numOfProducers) {
 }
 void sortNews(vector<string> news) {
     unsigned long len = news.size(); // number of articles in the vector
-    //printf("size of: %lu\n", len);
     for (int i = 0; i < len; ++i) {
-        //const char* newsC = news[i].c_str();
-//        if(news[i] == "end"){
-//            printf("end in produce %d in sort function\n", i);
-//            continue;
-//        }
         if (news[i] != "end") {
             size_t found = news[i].find("SPORTS");
             if (found != string::npos) {
@@ -183,6 +171,10 @@ void dispatcher(int numOfProducers, const vector<int>& articlesForAll) {
         counter++; //debug
         //newsRow = getArticlesFromProducers(numOfProducers);
     }
+    // sent "end" message to all types of queues:
+    for (int i = 0; i < numOfProducers; ++i) {
+        ProducersQueue[i]->insert("end");
+    }
     printf("finished\n");
 }
 
@@ -195,9 +187,10 @@ void coEditor(const string& type) {
         currentQueue = newsQueue;
     else // weather
         currentQueue = weatherQueue;
-    while(!currentQueue->UbQ.empty()) { // while the queue is not empty
+    while(1) { // while the queue didn't finish
         //1. remove article from type queue
         string article = currentQueue->remove();
+        //printf("article is %s\n", article.c_str());
         //2. block for 0.1 sec
         sleep(0.1);
         //3. insert it to coEdit queue
@@ -205,6 +198,7 @@ void coEditor(const string& type) {
         //4. print to screen
         if (article != "end")
             printf("FINAL: %s\n", article.c_str());
+        else break;
     }
 }
 
@@ -241,11 +235,12 @@ int main() {
     }
     sleep(5); // debug?
     printf("enter dis thread\n");
-    allThreads[i+1] = thread(dispatcher, producers, newsNumForAll);
+    allThreads[i] = thread(dispatcher, producers, newsNumForAll);
+    sleep(5);
     printf("enter editors threads\n");
-    allThreads[i+2] = thread(coEditor, "sports");
-    allThreads[i+3] = thread(coEditor, "news");
-    allThreads[i+4] = thread(coEditor, "weather");
+    allThreads[i+1] = thread(coEditor, "sports");
+    allThreads[i+2] = thread(coEditor, "news");
+    allThreads[i+3] = thread(coEditor, "weather");
 
     for(thread& t: allThreads){
         t.join();
