@@ -195,13 +195,22 @@ void coEditor(const string& type) {
         sleep(0.1);
         //3. insert it to coEdit queue
         CoEditQueue->insert(article);
-        //4. print to screen
+        if (article == "end")
+            break;
+    }
+
+}
+
+void screenManger() {
+    while(1) {
+        //1. remove from co editor queue
+        string article = CoEditQueue->remove();
+        //2. print it
         if (article != "end")
             printf("FINAL: %s\n", article.c_str());
         else break;
     }
 }
-
 
 int main() {
     int producers = getNumof("producer");
@@ -221,8 +230,6 @@ int main() {
         //printf("producer %d queue1 size is %d\n", counter, size);
         counter++;
         ProducersQueue.push_back(bq);
-        //printf("created a queue in size %d\n", size);
-        //ProducersQueue.insert(ProducersQueue.begin(), bq);
     }
 
     //2. read from file how much news each producer need to create
@@ -241,6 +248,7 @@ int main() {
     allThreads[i+1] = thread(coEditor, "sports");
     allThreads[i+2] = thread(coEditor, "news");
     allThreads[i+3] = thread(coEditor, "weather");
+    allThreads[i+4] = thread(screenManger);
 
     for(thread& t: allThreads){
         t.join();
