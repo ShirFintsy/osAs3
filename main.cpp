@@ -173,12 +173,15 @@ void dispatcher(int numOfProducers, const vector<int>& articlesForAll) {
     }
     // sent "end" message to all types of queues:
     for (int i = 0; i < numOfProducers; ++i) {
-        ProducersQueue[i]->insert("end");
+        sportsQueue->insert("end");
+        newsQueue->insert("end");
+        weatherQueue->insert("end");
     }
-    printf("finished\n");
+    printf("dispatcher finished\n");
 }
 
 void coEditor(const string& type) {
+    int endCounter = 0;
     //0. init the type queue
     UnboundedQueue* currentQueue;
     if(type == "sports")
@@ -190,32 +193,45 @@ void coEditor(const string& type) {
     while(1) { // while the queue didn't finish
         //1. remove article from type queue
         string article = currentQueue->remove();
-        //printf("article is %s\n", article.c_str());
+        //printf("in type %s article is %s\n",type.c_str(), article.c_str());
         //2. block for 0.1 sec
         sleep(0.1);
         //3. insert it to coEdit queue
-        CoEditQueue->insert(article);
-        if (article == "end")
+        if (article != "end"){
+            CoEditQueue->insert(article);
+        }
+        else {
             break;
+//            endCounter++;
+//            if(endCounter == numOfProducers)
+//                break;
+        }
     }
-
+    CoEditQueue->insert("end");
+    printf("co editor %s finished\n", type.c_str());
 }
 
 void screenManger() {
+    int endCounter = 0;
     while(1) {
         //1. remove from co editor queue
         string article = CoEditQueue->remove();
+        //printf("screen mangers just removed %s\n", article.c_str());
         //2. print it
         if (article != "end")
             printf("FINAL: %s\n", article.c_str());
-        else break;
+        else{
+            endCounter++;
+            if(endCounter == 3)
+                break;
+        }
     }
+    printf("screen manger finished\n");
 }
 
 int main() {
     int producers = getNumof("producer");
     printf("producers: %d\n", producers);
-    thread allThreads[producers + 10];
 
     //0. init the co-editor queue:
     int coEditSize = getNumof("co-edit");
@@ -223,32 +239,25 @@ int main() {
 
     //1. initialize the producers queue:
     vector<int> sizesArray = getSizes("queue");
-    //printf("size 1: %d, size 2: %d\n", sizesArray[0], sizesArray[1]);
-    int counter = 1; //debug
     for (int size: sizesArray) {
         BoundedQueue* bq = new BoundedQueue(size);
-        //printf("producer %d queue1 size is %d\n", counter, size);
-        counter++;
         ProducersQueue.push_back(bq);
     }
 
     //2. read from file how much news each producer need to create
     vector<int> newsNumForAll = getSizes("news num");
 
+    vector<thread> allThreads;
     // for each producer:
     int i;
     for (i = 0; i < producers; ++i) {
-        allThreads[i] = thread(producer, i + 1, newsNumForAll[i]);
+        allThreads.emplace_back(producer, i + 1, newsNumForAll[i]);
     }
-    sleep(5); // debug?
-    printf("enter dis thread\n");
-    allThreads[i] = thread(dispatcher, producers, newsNumForAll);
-    sleep(5);
-    printf("enter editors threads\n");
-    allThreads[i+1] = thread(coEditor, "sports");
-    allThreads[i+2] = thread(coEditor, "news");
-    allThreads[i+3] = thread(coEditor, "weather");
-    allThreads[i+4] = thread(screenManger);
+    allThreads.emplace_back(dispatcher, producers, newsNumForAll);
+    allThreads.emplace_back(coEditor, "sports");
+    allThreads.emplace_back(coEditor, "news");
+    allThreads.emplace_back(coEditor, "weather");
+    allThreads.emplace_back(screenManger);
 
     for(thread& t: allThreads){
         t.join();
